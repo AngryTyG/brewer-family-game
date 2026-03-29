@@ -325,8 +325,9 @@ export default function HostPage() {
             ))}
           </div>
           {mcText && (
-            <div className="bg-purple-900/30 rounded-2xl p-4 border border-purple-700/40 max-w-md text-center">
-              <p className="text-gray-200 text-sm leading-relaxed italic">"{mcText}"</p>
+            <div className="bg-purple-950/60 border border-purple-600/40 rounded-2xl px-6 py-4 max-w-2xl w-full text-center">
+              <p className="text-purple-400 text-xs uppercase tracking-widest mb-2">🤖 AI Master of Ceremonies</p>
+              <p className="text-white text-2xl font-semibold leading-snug">{mcText}</p>
             </div>
           )}
           <div className="flex gap-4">
@@ -455,10 +456,11 @@ export default function HostPage() {
                 ))}
               </div>
 
-              {mcText && (
-                <div className="bg-purple-900/30 rounded-2xl p-4 border border-purple-700/40">
-                  <p className="text-purple-300 text-xs uppercase tracking-wider mb-2">🤖 AI MC</p>
-                  <p className="text-gray-200 text-sm leading-relaxed">{mcText}</p>
+              {/* Question-intro MC — small, in the panel */}
+              {mcText && revealPhase === 'question' && (
+                <div className="bg-purple-900/20 rounded-xl p-3 border border-purple-700/30">
+                  <p className="text-purple-300 text-xs uppercase tracking-wider mb-1">🤖 AI</p>
+                  <p className="text-gray-300 text-sm leading-relaxed">{mcText}</p>
                 </div>
               )}
 
@@ -480,6 +482,14 @@ export default function HostPage() {
               </div>
             </div>
           </div>
+
+          {/* ── MC BANNER — full width, appears after reveals ── */}
+          {mcText && revealPhase !== 'question' && (
+            <div className="mt-2 bg-purple-950/60 border border-purple-600/40 rounded-2xl px-6 py-4 backdrop-blur-sm">
+              <p className="text-purple-400 text-xs uppercase tracking-widest mb-2 text-center">🤖 AI Master of Ceremonies</p>
+              <p className="text-white text-2xl font-semibold leading-snug text-center">{mcText}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -499,8 +509,9 @@ export default function HostPage() {
             ))}
           </div>
           {mcText && (
-            <div className="bg-purple-900/30 rounded-2xl p-4 border border-purple-700/40 max-w-md text-center">
-              <p className="text-gray-200 text-sm leading-relaxed italic">"{mcText}"</p>
+            <div className="bg-purple-950/60 border border-purple-600/40 rounded-2xl px-6 py-4 max-w-2xl w-full text-center">
+              <p className="text-purple-400 text-xs uppercase tracking-widest mb-2">🤖 AI Master of Ceremonies</p>
+              <p className="text-white text-2xl font-semibold leading-snug">{mcText}</p>
             </div>
           )}
           <button onClick={reset} className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold rounded-xl transition-colors">
