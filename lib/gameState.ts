@@ -68,6 +68,7 @@ export function addPlayer(name: string): Player {
     name,
     score: 0,
     isSubject: false,
+    avatarUrl: '',
   };
   state.players.push(player);
   touch();
@@ -169,6 +170,13 @@ export function appendMcComment(chunk: string) {
 export function setMcStreaming(val: boolean) {
   state.mcStreaming = val;
   if (!val && state.mcComment) state.speechId++;
+  touch();
+}
+
+export function setPlayerAvatar(playerId: string, url: string) {
+  state.players = state.players.map(p =>
+    p.id === playerId ? { ...p, avatarUrl: url } : p
+  );
   touch();
 }
 

@@ -338,7 +338,7 @@ export default function HostPage() {
           <div className="grid grid-cols-3 gap-3 max-w-2xl w-full">
             {players.map(p => (
               <div key={p.id} className="bg-gray-800 rounded-xl p-4 text-center border border-gray-700">
-                <div className="text-3xl mb-2">👤</div>
+                <PlayerAvatar player={p} size={56} className="mx-auto mb-2" />
                 <p className="text-white font-semibold">{p.name}</p>
               </div>
             ))}
@@ -381,6 +381,7 @@ export default function HostPage() {
               <div key={p.id} className={`flex items-center justify-between rounded-2xl p-4 ${i === 0 ? 'bg-yellow-900/30 border border-yellow-600/40' : 'bg-gray-800'}`}>
                 <div className="flex items-center gap-3">
                   <span className="text-gray-500 text-sm w-5">{i + 1}.</span>
+                  <PlayerAvatar player={p} size={36} />
                   <span className="text-white font-semibold text-lg">{p.name}</span>
                 </div>
                 <span className="text-cyan-400 font-bold text-xl">{p.score}</span>
@@ -518,6 +519,7 @@ export default function HostPage() {
                   <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-gray-700/50 last:border-0">
                     <div className="flex items-center gap-2">
                       <span className="text-gray-600 text-xs w-4">{i + 1}.</span>
+                      <PlayerAvatar player={p} size={24} />
                       <span className={`text-sm font-medium ${p.isSubject ? 'text-yellow-300' : 'text-white'}`}>
                         {p.name} {p.isSubject && '⭐'}
                       </span>
@@ -565,31 +567,59 @@ export default function HostPage() {
       )}
 
       {/* ── FINISHED ── */}
-      {phase === 'finished' && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
-          <h1 className="text-5xl font-bold text-white">Game Over!</h1>
-          <div className="space-y-3 w-full max-w-sm">
-            {[...players].sort((a, b) => b.score - a.score).map((p, i) => (
-              <div key={p.id} className={`flex items-center justify-between rounded-2xl p-4 ${i === 0 ? 'bg-yellow-900/40 border border-yellow-500/40' : 'bg-gray-800'}`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''}</span>
-                  <span className="text-white font-semibold text-lg">{p.name}</span>
+      {phase === 'finished' && (() => {
+        const sorted = [...players].sort((a, b) => b.score - a.score);
+        const medals = ['🥇', '🥈', '🥉'];
+        const podiumColors = [
+          'bg-yellow-900/40 border-yellow-500/60',
+          'bg-gray-700/60 border-gray-500/60',
+          'bg-amber-900/30 border-amber-600/40',
+        ];
+        return (
+          <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8 overflow-auto">
+            <h1 className="text-5xl font-bold text-white tracking-tight">Game Over!</h1>
+
+            {/* Top 3 podium */}
+            <div className="flex items-end gap-6 justify-center">
+              {sorted.slice(0, 3).map((p, i) => (
+                <div key={p.id} className={`flex flex-col items-center rounded-2xl border p-5 ${podiumColors[i] ?? 'bg-gray-800 border-gray-700'}`}
+                  style={{ minWidth: i === 0 ? 160 : 130, paddingBottom: i === 0 ? 28 : i === 1 ? 20 : 16 }}>
+                  <span className="text-4xl mb-2">{medals[i]}</span>
+                  <PlayerAvatar player={p} size={i === 0 ? 96 : 72} className="mb-3" />
+                  <p className="text-white font-bold text-lg">{p.name}</p>
+                  <p className="text-cyan-400 font-bold text-2xl">{p.score}</p>
                 </div>
-                <span className="text-white font-bold text-xl">{p.score}</span>
-              </div>
-            ))}
-          </div>
-          {mcText && (
-            <div className="bg-purple-950/60 border border-purple-600/40 rounded-2xl px-6 py-4 max-w-2xl w-full text-center">
-              <p className="text-purple-400 text-xs uppercase tracking-widest mb-2">🤖 AI Master of Ceremonies</p>
-              <p className="text-white text-2xl font-semibold leading-snug">{mcText}</p>
+              ))}
             </div>
-          )}
-          <button onClick={reset} className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold rounded-xl transition-colors">
-            Play Again
-          </button>
-        </div>
-      )}
+
+            {/* Rest of leaderboard */}
+            {sorted.length > 3 && (
+              <div className="flex flex-col gap-2 w-full max-w-md">
+                {sorted.slice(3).map((p, i) => (
+                  <div key={p.id} className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-2 border border-gray-700">
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-500 text-sm w-5">{i + 4}.</span>
+                      <PlayerAvatar player={p} size={36} />
+                      <span className="text-white font-medium">{p.name}</span>
+                    </div>
+                    <span className="text-white font-bold">{p.score}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {mcText && (
+              <div className="bg-purple-950/60 border border-purple-600/40 rounded-2xl px-6 py-4 max-w-2xl w-full text-center">
+                <p className="text-purple-400 text-xs uppercase tracking-widest mb-2">🤖 AI Master of Ceremonies</p>
+                <p className="text-white text-2xl font-semibold leading-snug">{mcText}</p>
+              </div>
+            )}
+            <button onClick={reset} className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold rounded-xl transition-colors">
+              Play Again
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ── SUBTITLE OVERLAY ── */}
       <div
@@ -602,6 +632,30 @@ export default function HostPage() {
         </div>
       </div>
 
+    </div>
+  );
+}
+
+function PlayerAvatar({ player, size, className = '' }: { player: { name: string; avatarUrl: string }; size: number; className?: string }) {
+  if (player.avatarUrl) {
+    return (
+      <img
+        src={player.avatarUrl}
+        alt={player.name}
+        width={size}
+        height={size}
+        className={`rounded-full object-cover border-2 border-gray-600 ${className}`}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  // Fallback: initials circle while avatar generates
+  return (
+    <div
+      className={`rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center text-white font-bold ${className}`}
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+    >
+      {player.name[0]?.toUpperCase()}
     </div>
   );
 }
