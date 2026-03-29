@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Cache audio by speechId — one OpenAI call shared across all devices
-const audioCache = new Map<number, Buffer>();
+const audioCache = new Map<number, ArrayBuffer>();
 const MAX_CACHE = 5;
 
 export async function POST(req: NextRequest) {
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: await res.text() }, { status: 500 });
   }
 
-  const buf = Buffer.from(await res.arrayBuffer());
+  const buf = await res.arrayBuffer();
 
   if (typeof speechId === 'number') {
     audioCache.set(speechId, buf);
