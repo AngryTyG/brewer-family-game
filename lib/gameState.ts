@@ -76,12 +76,13 @@ export function addPlayer(name: string): Player {
   return player;
 }
 
-export function startGame() {
-  // Auto-add bot stand-ins for any subjects who didn't join
+export function startGame(disabledBots: string[] = []) {
+  // Auto-add bot stand-ins for any subjects who didn't join, unless explicitly disabled
+  const disabled = new Set(disabledBots.map(n => n.toLowerCase()));
   const allSubjects = new Set(QUESTIONS.map(q => q.subjectName.toLowerCase()));
   const joinedNames = new Set(state.players.map(p => p.name.toLowerCase()));
   for (const subjectName of allSubjects) {
-    if (!joinedNames.has(subjectName)) {
+    if (!joinedNames.has(subjectName) && !disabled.has(subjectName)) {
       const originalName = QUESTIONS.find(q => q.subjectName.toLowerCase() === subjectName)?.subjectName ?? subjectName;
       state.players.push({
         id: crypto.randomUUID(),

@@ -3,10 +3,10 @@ import { advance, startGame, getState, endGame, getBotPlayers, setPlayerAvatar }
 import { generateAvatar } from '@/lib/avatarStore';
 
 export async function POST(req: NextRequest) {
-  const { action } = await req.json().catch(() => ({ action: 'advance' }));
+  const { action, disabledBots } = await req.json().catch(() => ({ action: 'advance', disabledBots: [] }));
 
   if (action === 'start') {
-    startGame();
+    startGame(disabledBots ?? []);
     // Generate avatars for bot stand-ins in background
     for (const bot of getBotPlayers()) {
       generateAvatar(bot.id, bot.name).then(() => {

@@ -5,11 +5,16 @@ import { GameState, Question } from '@/lib/types';
 
 type ThinkingStage = 'idle' | 'analyzing' | 'generating' | 'ready';
 
+const ALL_SUBJECTS = ['Ty', 'Kristi', 'Stormy', 'Shane', 'Destiny', 'Eric', 'Logan', 'Kyle', 'Brooke'];
+const MIN_PLAYERS = 5;
+const TARGET_PLAYERS = 6;
+
 export default function HostPage() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [mcText, setMcText] = useState('');
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [enabledBots, setEnabledBots] = useState<Set<string>>(new Set());
 
   // Theater state — client only, not synced to server
   const [thinkingStage, setThinkingStage] = useState<ThinkingStage>('idle');
@@ -60,6 +65,21 @@ export default function HostPage() {
     showSubtitle(gameState.subtitle);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.subtitleId]);
+
+  // Auto-compute which bots to enable based on real player count
+  useEffect(() => {
+    if (!gameState || gameState.phase !== 'lobby') return;
+    const realNames = new Set(gameState.players.map(p => p.name.toLowerCase()));
+    const missing = ALL_SUBJECTS.filter(s => !realNames.has(s.toLowerCase()));
+    const realCount = gameState.players.length;
+    if (realCount < MIN_PLAYERS) {
+      const needed = Math.max(0, TARGET_PLAYERS - realCount);
+      setEnabledBots(new Set(missing.slice(0, needed).map(s => s.toLowerCase())));
+    } else {
+      setEnabledBots(new Set());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.players.length, gameState?.phase]);
 
   // Trigger thinking theater when a new question starts
   useEffect(() => {
@@ -264,10 +284,13 @@ export default function HostPage() {
   }
 
   async function advance(action = 'advance') {
+    const disabledBots = action === 'start'
+      ? ALL_SUBJECTS.filter(s => !enabledBots.has(s.toLowerCase()))
+      : undefined;
     const res = await fetch('/api/advance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, disabledBots }),
     });
     const state: GameState = await res.json();
     setGameState(state);
@@ -362,19 +385,36 @@ export default function HostPage() {
             <p className="text-cyan-400 text-xl">Brewer Family AI Lab</p>
           </div>
           <div className="grid grid-cols-3 gap-3 max-w-2xl w-full">
-            {players.map(p => (
-              <div key={p.id} className={`rounded-xl p-4 text-center border ${p.isBot ? 'bg-purple-950/40 border-purple-700/50' : 'bg-gray-800 border-gray-700'}`}>
-                <PlayerAvatar player={p} size={56} className="mx-auto mb-2" />
-                <p className="text-white font-semibold">{p.name}</p>
-                {p.isBot && <p className="text-purple-400 text-xs mt-1">🤖 AI stand-in</p>}
-              </div>
-            ))}
-            {Array.from({ length: Math.max(0, 6 - players.length) }).map((_, i) => (
-              <div key={i} className="bg-gray-900 rounded-xl p-4 text-center border border-dashed border-gray-700 opacity-40">
-                <div className="text-3xl mb-2">·</div>
-                <p className="text-gray-600 text-sm">waiting...</p>
-              </div>
-            ))}
+            {ALL_SUBJECTS.map(name => {
+              const joined = players.find(p => p.name.toLowerCase() === name.toLowerCase());
+              const key = name.toLowerCase();
+              const botEnabled = enabledBots.has(key);
+              if (joined) {
+                return (
+                  <div key={name} className="rounded-xl p-4 text-center border bg-gray-800 border-cyan-700/50">
+                    <PlayerAvatar player={joined} size={56} className="mx-auto mb-2" />
+                    <p className="text-white font-semibold">{name}</p>
+                    <p className="text-cyan-400 text-xs mt-1">✓ joined</p>
+                  </div>
+                );
+              }
+              return (
+                <div key={name} className={`rounded-xl p-4 text-center border transition-colors ${botEnabled ? 'bg-purple-950/40 border-purple-700/50' : 'bg-gray-900 border-gray-700/50 opacity-50'}`}>
+                  <div className="text-3xl mb-2">{botEnabled ? '🤖' : '·'}</div>
+                  <p className={`font-semibold text-sm ${botEnabled ? 'text-purple-300' : 'text-gray-500'}`}>{name}</p>
+                  <button
+                    onClick={() => setEnabledBots(prev => {
+                      const next = new Set(prev);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      return next;
+                    })}
+                    className={`mt-1 text-xs px-2 py-0.5 rounded border transition-colors ${botEnabled ? 'border-purple-600 text-purple-400 hover:border-red-500 hover:text-red-400' : 'border-gray-600 text-gray-500 hover:border-purple-500 hover:text-purple-400'}`}
+                  >
+                    {botEnabled ? 'remove bot' : 'add bot'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2">
@@ -383,7 +423,9 @@ export default function HostPage() {
                 {typeof window !== 'undefined' ? `${window.location.host}/play` : '/play'}
               </span>
             </div>
-            <p className="text-gray-600 text-xs">{players.length} player{players.length !== 1 ? 's' : ''} joined</p>
+            <p className="text-gray-600 text-xs">
+              {players.length} joined{enabledBots.size > 0 ? ` · ${enabledBots.size} AI bot${enabledBots.size !== 1 ? 's' : ''}` : ' · no bots'}
+            </p>
             <button
               onClick={() => advance('start')}
               disabled={players.length < 1}
