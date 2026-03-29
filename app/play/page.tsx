@@ -28,14 +28,8 @@ export default function PlayPage() {
     ? gameState.questions[gameState.currentQuestionIndex]
     : null;
 
-  // One-tap activation for AI player: unlocks audio + starts mic
+  // One-tap activation for AI player: starts mic (the tap itself unlocks audio)
   async function activateAI() {
-    // Unlock audio playback
-    try {
-      const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-      await a.play();
-    } catch { /* ignored */ }
-
     // Start speech recognition — this triggers Chrome's mic permission prompt
     const w = window as typeof window & {
       webkitSpeechRecognition?: new () => SpeechRecognition;
@@ -72,13 +66,6 @@ export default function PlayPage() {
     setAiActivated(true);
   }
 
-  // Unlock audio on join (for non-AI players, keep it simple)
-  async function unlockAudio() {
-    try {
-      const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-      await a.play();
-    } catch { /* blocked */ }
-  }
 
   // Auto-play MC audio for AI player when a new speech is ready
   useEffect(() => {
@@ -161,7 +148,6 @@ export default function PlayPage() {
 
   async function handleJoin() {
     if (!nameInput.trim()) return;
-    unlockAudio(); // fire-and-forget — don't block join on audio unlock
     const res = await fetch('/api/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
