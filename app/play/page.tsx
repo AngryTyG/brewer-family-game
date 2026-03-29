@@ -64,7 +64,17 @@ export default function PlayPage() {
     });
     const p: Player = await res.json();
     setPlayer(p);
-    setScreen('lobby');
+    // If game already started, jump straight in
+    const stateRes = await fetch('/api/state');
+    const state: GameState = await stateRes.json();
+    setGameState(state);
+    if (state.phase === 'playing' && state.revealPhase === 'question') {
+      setScreen('question');
+    } else if (state.phase === 'playing') {
+      setScreen('locked'); // mid-reveal, wait for next question
+    } else {
+      setScreen('lobby');
+    }
   }
 
   async function handleAnswer(choiceId: string) {
@@ -131,9 +141,14 @@ export default function PlayPage() {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col p-4">
         <div className="mb-4 pt-2">
-          <p className="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-1">
-            Question {(gameState?.currentQuestionIndex ?? 0) + 1} of {gameState?.questions.length}
-          </p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-cyan-400 text-sm font-semibold uppercase tracking-wider">
+              Question {(gameState?.currentQuestionIndex ?? 0) + 1} of {gameState?.questions.length}
+            </p>
+            {gameState?.round === 2 && (
+              <span className="text-xs bg-cyan-900/40 text-cyan-400 border border-cyan-700/40 px-2 py-0.5 rounded-full">Round 2</span>
+            )}
+          </div>
           {isSubject && (
             <div className="bg-yellow-500/20 border border-yellow-500/40 rounded-lg px-3 py-2 mb-2">
               <p className="text-yellow-400 text-sm font-medium">⭐ This question is about YOU</p>

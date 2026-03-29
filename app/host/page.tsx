@@ -68,15 +68,17 @@ export default function HostPage() {
   function runThinkingSequence() {
     setThinkingStage('analyzing');
     setVisibleChoices(0);
+    setMcText('');
 
     setTimeout(() => setThinkingStage('generating'), 1600);
 
     setTimeout(() => {
       setThinkingStage('ready');
-      // Stagger choice reveal
       [0, 1, 2, 3].forEach(i =>
         setTimeout(() => setVisibleChoices(i + 1), i * 250)
       );
+      // Fire question-intro MC comment once question is revealed
+      triggerMC('question-intro');
     }, 2900);
   }
 
@@ -284,10 +286,14 @@ export default function HostPage() {
               </div>
             ))}
           </div>
-          <div className="text-center">
-            <p className="text-gray-500 mb-4 text-sm">
-              {players.length} joined · share <span className="text-cyan-400">/play</span> to join
-            </p>
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2">
+              <span className="text-gray-500 text-sm">Join at</span>
+              <span className="text-cyan-400 font-mono font-semibold text-sm">
+                {typeof window !== 'undefined' ? `${window.location.host}/play` : '/play'}
+              </span>
+            </div>
+            <p className="text-gray-600 text-xs">{players.length} player{players.length !== 1 ? 's' : ''} joined</p>
             <button
               onClick={() => advance('start')}
               disabled={players.length < 1}
