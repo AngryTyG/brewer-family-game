@@ -24,15 +24,15 @@ React to what you hear in the background if given an ambient transcript.
 `.trim();
 
 export async function POST(req: NextRequest) {
-  const { trigger, questionId, subjectName, correctId, aiPredictionId, aiGotIt, transcript } = await req.json();
+  const { trigger, questionId, subjectName, correctId, correctText, aiPredictionId, aiGotIt, transcript } = await req.json();
 
   let prompt = '';
 
   if (trigger === 'reveal-subject') {
-    prompt = `The subject (${subjectName}) just revealed their answer.
-Correct choice ID: ${correctId}. AI predicted: ${aiPredictionId}. AI was ${aiGotIt ? 'RIGHT' : 'WRONG'}.
-${transcript ? `Ambient conversation in the room: "${transcript}"` : ''}
-Give a sharp, fun MC reaction. Did the family know them? Did the AI? Any surprises?`;
+    prompt = `${subjectName} just revealed their answer: "${correctText}".
+The AI predicted choice ${aiPredictionId} and was ${aiGotIt ? 'RIGHT ✓' : 'WRONG ✗'}.
+${transcript ? `Ambient conversation: "${transcript}"` : ''}
+React as MC: make it clear this is ${subjectName}'s own answer about themselves. Was the family right? Did the AI nail it or miss? Keep it sharp and fun.`;
   } else if (trigger === 'ambient') {
     prompt = `You're running game night. Here's what you just heard in the background:
 "${transcript}"

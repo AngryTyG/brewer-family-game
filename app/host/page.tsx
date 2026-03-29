@@ -250,9 +250,11 @@ export default function HostPage() {
       if (state.revealPhase === 'scores') {
         const q = state.questions[state.currentQuestionIndex];
         const effectiveCorrectId = state.effectiveCorrectId ?? q.correctId;
+        const correctText = q.choices.find(c => c.id === effectiveCorrectId)?.text ?? '';
         triggerMC('reveal-subject', {
           transcript: transcriptBuffer.current.slice(-200),
           correctId: effectiveCorrectId,
+          correctText,
           aiPredictionId: q.aiPredictionId,
           aiGotIt: q.aiPredictionId === effectiveCorrectId,
           subjectName: q.subjectName,
@@ -483,12 +485,19 @@ export default function HostPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                           {isAiPick && <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">🤖 AI</span>}
-                          {isCorrect && <span className="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full border border-green-500/30">✓ Answer</span>}
-                          {showFamilyAnswers && answersForChoice.map(a => (
-                            <span key={a.playerId} className="text-xs bg-cyan-900/40 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-700/40">
-                              {a.playerName}
-                            </span>
-                          ))}
+                          {isCorrect && <span className="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full border border-green-500/30">✓ {currentQ.subjectName}'s answer</span>}
+                          {showFamilyAnswers && answersForChoice.map(a => {
+                            const isSubject = a.playerName.toLowerCase() === currentQ.subjectName.toLowerCase();
+                            return (
+                              <span key={a.playerId} className={`text-xs px-2 py-0.5 rounded-full border ${
+                                isSubject
+                                  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+                                  : 'bg-cyan-900/40 text-cyan-300 border-cyan-700/40'
+                              }`}>
+                                {a.playerName}{isSubject ? ' ⭐' : ''}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
