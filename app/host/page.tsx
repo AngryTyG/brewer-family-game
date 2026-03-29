@@ -337,9 +337,10 @@ export default function HostPage() {
           </div>
           <div className="grid grid-cols-3 gap-3 max-w-2xl w-full">
             {players.map(p => (
-              <div key={p.id} className="bg-gray-800 rounded-xl p-4 text-center border border-gray-700">
+              <div key={p.id} className={`rounded-xl p-4 text-center border ${p.isBot ? 'bg-purple-950/40 border-purple-700/50' : 'bg-gray-800 border-gray-700'}`}>
                 <PlayerAvatar player={p} size={56} className="mx-auto mb-2" />
                 <p className="text-white font-semibold">{p.name}</p>
+                {p.isBot && <p className="text-purple-400 text-xs mt-1">🤖 AI stand-in</p>}
               </div>
             ))}
             {Array.from({ length: Math.max(0, 6 - players.length) }).map((_, i) => (
@@ -520,8 +521,8 @@ export default function HostPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-gray-600 text-xs w-4">{i + 1}.</span>
                       <PlayerAvatar player={p} size={24} />
-                      <span className={`text-sm font-medium ${p.isSubject ? 'text-yellow-300' : 'text-white'}`}>
-                        {p.name} {p.isSubject && '⭐'}
+                      <span className={`text-sm font-medium ${p.isSubject ? 'text-yellow-300' : p.isBot ? 'text-purple-300' : 'text-white'}`}>
+                        {p.name} {p.isSubject && '⭐'}{p.isBot && '🤖'}
                       </span>
                     </div>
                     <span className="text-cyan-400 font-bold">{p.score}</span>

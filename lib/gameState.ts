@@ -68,6 +68,7 @@ export function addPlayer(name: string): Player {
     name,
     score: 0,
     isSubject: false,
+    isBot: false,
     avatarUrl: '',
   };
   state.players.push(player);
@@ -76,6 +77,23 @@ export function addPlayer(name: string): Player {
 }
 
 export function startGame() {
+  // Auto-add bot stand-ins for any subjects who didn't join
+  const allSubjects = new Set(QUESTIONS.map(q => q.subjectName.toLowerCase()));
+  const joinedNames = new Set(state.players.map(p => p.name.toLowerCase()));
+  for (const subjectName of allSubjects) {
+    if (!joinedNames.has(subjectName)) {
+      const originalName = QUESTIONS.find(q => q.subjectName.toLowerCase() === subjectName)?.subjectName ?? subjectName;
+      state.players.push({
+        id: crypto.randomUUID(),
+        name: originalName,
+        score: 0,
+        isSubject: false,
+        isBot: true,
+        avatarUrl: '',
+      });
+    }
+  }
+
   const { questions, roundBreakAfter } = buildQuestionList(state.players);
   state.phase = 'playing';
   state.round = 1;
@@ -86,7 +104,12 @@ export function startGame() {
   state.answers = [];
   state.mcComment = '';
   markSubject();
+  submitBotAnswers();
   touch();
+}
+
+export function getBotPlayers(): Player[] {
+  return state.players.filter(p => p.isBot);
 }
 
 export function submitAnswer(playerId: string, playerName: string, choiceId: string) {
@@ -111,6 +134,7 @@ export function advance() {
     state.mcComment = '';
     state.effectiveCorrectId = undefined;
     markSubject();
+    submitBotAnswers();
   } else if (state.revealPhase === 'scores') {
     const isLastQuestion = state.currentQuestionIndex >= state.questions.length - 1;
     const isRoundBreakPoint = state.currentQuestionIndex === state.roundBreakAfter;
@@ -128,6 +152,7 @@ export function advance() {
       state.mcComment = '';
       state.effectiveCorrectId = undefined;
       markSubject();
+      submitBotAnswers();
     }
   } else {
     state.revealPhase = sequence[idx + 1] || 'scores';
@@ -188,6 +213,20 @@ export function setSubtitle(text: string) {
 
 export function resetGame() {
   state = buildInitialState();
+}
+
+function submitBotAnswers() {
+  const q = state.questions[state.currentQuestionIndex];
+  for (const bot of state.players.filter(p => p.isBot)) {
+    if (state.answers.find(a => a.playerId === bot.id)) continue;
+    const isSubject = q.subjectName.toLowerCase() === bot.name.toLowerCase();
+    // Bot knows their own answer; for others use AI prediction
+    state.answers.push({
+      playerId: bot.id,
+      playerName: bot.name,
+      choiceId: isSubject ? q.correctId : q.aiPredictionId,
+    });
+  }
 }
 
 function markSubject() {

@@ -16,10 +16,13 @@ const PROMPTS: Record<string, string> = {
 };
 
 function getPrompt(name: string): string {
-  return (
-    PROMPTS[name.toLowerCase()] ??
-    `cartoon game show contestant portrait, friendly person named ${name}, warm smile, fun energy. Vibrant colors, circular avatar style.`
-  );
+  const n = name.toLowerCase().trim();
+  if (PROMPTS[n]) return PROMPTS[n];
+  // Fuzzy: known key starts with input (brook→brooke) or input starts with key (kristy→kristi)
+  const keys = Object.keys(PROMPTS);
+  const fuzzy = keys.find(k => k.startsWith(n) || n.startsWith(k));
+  if (fuzzy) return PROMPTS[fuzzy];
+  return `cartoon game show contestant portrait, friendly person named ${name}, warm smile, fun energy. Vibrant colors, circular avatar style.`;
 }
 
 export function getAvatar(playerId: string) {

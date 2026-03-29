@@ -27,6 +27,7 @@ export interface Player {
   name: string;
   score: number;
   isSubject: boolean;        // is this person the current question's subject?
+  isBot: boolean;            // true = auto-added stand-in for a missing family member
   avatarUrl: string;         // /api/avatar/{id} once generated, '' while pending
 }
 
