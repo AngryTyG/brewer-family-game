@@ -161,7 +161,7 @@ export default function PlayPage() {
 
   async function handleJoin() {
     if (!nameInput.trim()) return;
-    await unlockAudio();
+    unlockAudio(); // fire-and-forget — don't block join on audio unlock
     const res = await fetch('/api/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
