@@ -41,6 +41,8 @@ export interface GameState {
   mcComment: string;         // streaming AI MC text
   mcStreaming: boolean;
   speechId: number;          // increments when a new MC comment finishes — phones use this to trigger auto-play
+  subtitle: string;          // latest subtitle quip (from any device's mic)
+  subtitleId: number;        // increments on each new subtitle so host page can react
   effectiveCorrectId?: string; // subject's live answer if they played, else correctId
   lastUpdated: number;
 }

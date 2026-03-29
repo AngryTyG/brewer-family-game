@@ -17,7 +17,10 @@ export default function PlayPage() {
   // AI player state
   const lastSpeechId = useRef(-1);
   const autoAnswerTimer = useRef<NodeJS.Timeout | null>(null);
-  const audioUnlocked = useRef(false);
+  const [aiActivated, setAiActivated] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const transcriptBuffer = useRef('');
+  const finalSentenceCount = useRef(0);
 
   const isAiPlayer = player?.name.toLowerCase() === 'ai';
 
@@ -25,15 +28,56 @@ export default function PlayPage() {
     ? gameState.questions[gameState.currentQuestionIndex]
     : null;
 
-  // Unlock audio on first user interaction (required by mobile browsers)
-  async function unlockAudio() {
-    if (audioUnlocked.current) return;
+  // One-tap activation for AI player: unlocks audio + starts mic
+  async function activateAI() {
+    // Unlock audio playback
     try {
-      // Play a silent minimal WAV to unlock AudioContext
       const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
       await a.play();
-      audioUnlocked.current = true;
-    } catch { /* blocked — will retry on next interaction */ }
+    } catch { /* ignored */ }
+
+    // Start speech recognition — this triggers Chrome's mic permission prompt
+    const w = window as typeof window & {
+      webkitSpeechRecognition?: new () => SpeechRecognition;
+      SpeechRecognition?: new () => SpeechRecognition;
+    };
+    const SR = w.webkitSpeechRecognition || w.SpeechRecognition;
+    if (SR) {
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+      rec.onresult = (e: SpeechRecognitionEvent) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            transcriptBuffer.current += e.results[i][0].transcript + ' ';
+            finalSentenceCount.current++;
+            if (finalSentenceCount.current >= 2) {
+              finalSentenceCount.current = 0;
+              const snippet = transcriptBuffer.current.slice(-200);
+              fetch('/api/subtitle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript: snippet }),
+              }).catch(() => {});
+            }
+          }
+        }
+      };
+      rec.onend = () => { if (aiActivated || recognitionRef.current) rec.start(); };
+      rec.start();
+      recognitionRef.current = rec;
+    }
+
+    setAiActivated(true);
+  }
+
+  // Unlock audio on join (for non-AI players, keep it simple)
+  async function unlockAudio() {
+    try {
+      const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+      await a.play();
+    } catch { /* blocked */ }
   }
 
   // Auto-play MC audio for AI player when a new speech is ready
@@ -183,8 +227,20 @@ export default function PlayPage() {
         {isAiPlayer ? (
           <>
             <div className="text-5xl mb-6">🤖</div>
-            <h2 className="text-2xl font-bold text-white mb-2">AI is ready.</h2>
-            <p className="text-purple-400 text-sm">Will auto-answer and speak MC comments.</p>
+            <h2 className="text-2xl font-bold text-white mb-2">AI Mode</h2>
+            {aiActivated ? (
+              <p className="text-green-400 text-sm">🎤 Listening · 🔊 Ready to speak</p>
+            ) : (
+              <>
+                <p className="text-gray-400 text-sm mb-6">Tap below to enable mic and audio</p>
+                <button
+                  onClick={activateAI}
+                  className="px-8 py-4 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xl rounded-2xl transition-colors"
+                >
+                  🎤 Activate AI
+                </button>
+              </>
+            )}
           </>
         ) : (
           <>

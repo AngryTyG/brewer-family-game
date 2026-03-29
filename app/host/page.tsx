@@ -30,6 +30,7 @@ export default function HostPage() {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const transcriptBuffer = useRef('');
   const finalSentenceCount = useRef(0);
+  const lastSubtitleId = useRef(0);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const ambientTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -49,6 +50,16 @@ export default function HostPage() {
     pollRef.current = setInterval(poll, 1500);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
+
+  // Show subtitle from any device (e.g. AI iPad mic → game state → here)
+  useEffect(() => {
+    if (!gameState) return;
+    if (gameState.subtitleId === lastSubtitleId.current) return;
+    if (!gameState.subtitle) return;
+    lastSubtitleId.current = gameState.subtitleId;
+    showSubtitle(gameState.subtitle);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.subtitleId]);
 
   // Trigger thinking theater when a new question starts
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { setSubtitle } from '@/lib/gameState';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
 
     const text = (msg.content[0] as { text: string }).text.trim();
     if (text === 'SKIP' || !text) return NextResponse.json({ comment: '' });
+    setSubtitle(text);
     return NextResponse.json({ comment: text });
   } catch {
     return NextResponse.json({ comment: '' });

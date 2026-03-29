@@ -17,6 +17,8 @@ function buildInitialState(): GameState {
     mcComment: '',
     mcStreaming: false,
     speechId: 0,
+    subtitle: '',
+    subtitleId: 0,
     lastUpdated: Date.now(),
   };
 }
@@ -167,6 +169,12 @@ export function appendMcComment(chunk: string) {
 export function setMcStreaming(val: boolean) {
   state.mcStreaming = val;
   if (!val && state.mcComment) state.speechId++;
+  touch();
+}
+
+export function setSubtitle(text: string) {
+  state.subtitle = text;
+  state.subtitleId++;
   touch();
 }
 
