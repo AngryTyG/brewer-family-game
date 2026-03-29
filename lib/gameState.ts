@@ -16,6 +16,7 @@ function buildInitialState(): GameState {
     answers: [],
     mcComment: '',
     mcStreaming: false,
+    speechId: 0,
     lastUpdated: Date.now(),
   };
 }
@@ -105,6 +106,7 @@ export function advance() {
     state.revealPhase = 'question';
     state.answers = [];
     state.mcComment = '';
+    state.effectiveCorrectId = undefined;
     markSubject();
   } else if (state.revealPhase === 'scores') {
     const isLastQuestion = state.currentQuestionIndex >= state.questions.length - 1;
@@ -121,10 +123,21 @@ export function advance() {
       state.revealPhase = 'question';
       state.answers = [];
       state.mcComment = '';
+      state.effectiveCorrectId = undefined;
       markSubject();
     }
   } else {
     state.revealPhase = sequence[idx + 1] || 'scores';
+
+    // Compute effective correct answer when subject reveal happens
+    if (state.revealPhase === 'reveal-subject') {
+      const q = state.questions[state.currentQuestionIndex];
+      const subjectPlayer = state.players.find(p => p.isSubject);
+      const subjectAnswer = subjectPlayer
+        ? state.answers.find(a => a.playerId === subjectPlayer.id)
+        : null;
+      state.effectiveCorrectId = subjectAnswer ? subjectAnswer.choiceId : q.correctId;
+    }
 
     // Score when subject answer reveals
     if (state.revealPhase === 'scores') {
@@ -153,6 +166,7 @@ export function appendMcComment(chunk: string) {
 
 export function setMcStreaming(val: boolean) {
   state.mcStreaming = val;
+  if (!val && state.mcComment) state.speechId++;
   touch();
 }
 
@@ -170,13 +184,14 @@ function markSubject() {
 
 function scoreRound() {
   const q = state.questions[state.currentQuestionIndex];
-  const aiCorrect = q.aiPredictionId === q.correctId;
+  const correctId = state.effectiveCorrectId ?? q.correctId;
+  const aiCorrect = q.aiPredictionId === correctId;
 
   state.players = state.players.map(player => {
     const answer = state.answers.find(a => a.playerId === player.id);
     if (!answer) return player;
 
-    const playerCorrect = answer.choiceId === q.correctId;
+    const playerCorrect = answer.choiceId === correctId;
     if (!playerCorrect) return player;
 
     // Beat the AI: 2pts. Match AI: 1pt.

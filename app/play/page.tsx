@@ -14,9 +14,69 @@ export default function PlayPage() {
   const [submitted, setSubmitted] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
+  // AI player state
+  const lastSpeechId = useRef(-1);
+  const autoAnswerTimer = useRef<NodeJS.Timeout | null>(null);
+  const audioUnlocked = useRef(false);
+
+  const isAiPlayer = player?.name.toLowerCase() === 'ai';
+
   const currentQuestion = gameState
     ? gameState.questions[gameState.currentQuestionIndex]
     : null;
+
+  // Unlock audio on first user interaction (required by mobile browsers)
+  async function unlockAudio() {
+    if (audioUnlocked.current) return;
+    try {
+      // Play a silent minimal WAV to unlock AudioContext
+      const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+      await a.play();
+      audioUnlocked.current = true;
+    } catch { /* blocked — will retry on next interaction */ }
+  }
+
+  // Auto-play MC audio for AI player when a new speech is ready
+  useEffect(() => {
+    if (!isAiPlayer || !gameState) return;
+    if (gameState.mcStreaming) return;
+    if (!gameState.mcComment) return;
+    if (gameState.speechId === lastSpeechId.current) return;
+
+    lastSpeechId.current = gameState.speechId;
+
+    fetch('/api/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: gameState.mcComment, speechId: gameState.speechId }),
+    })
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        audio.play().catch(() => {});
+      })
+      .catch(() => {});
+  }, [isAiPlayer, gameState?.speechId, gameState?.mcStreaming]);
+
+  // Auto-answer for AI player: submit aiPredictionId after a short thinking delay
+  useEffect(() => {
+    if (!isAiPlayer || !player || !currentQuestion) return;
+    if (screen !== 'question' || submitted) return;
+
+    // Clear any existing timer
+    if (autoAnswerTimer.current) clearTimeout(autoAnswerTimer.current);
+
+    // AI "thinks" for 2–4 seconds then answers with its pre-loaded prediction
+    const delay = 2000 + Math.random() * 2000;
+    autoAnswerTimer.current = setTimeout(() => {
+      handleAnswer(currentQuestion.aiPredictionId);
+    }, delay);
+
+    return () => { if (autoAnswerTimer.current) clearTimeout(autoAnswerTimer.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAiPlayer, screen, currentQuestion?.id, submitted]);
 
   // Poll game state
   useEffect(() => {
@@ -57,6 +117,7 @@ export default function PlayPage() {
 
   async function handleJoin() {
     if (!nameInput.trim()) return;
+    await unlockAudio();
     const res = await fetch('/api/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,9 +180,19 @@ export default function PlayPage() {
   if (screen === 'lobby') {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center">
-        <div className="text-5xl mb-6">👋</div>
-        <h2 className="text-2xl font-bold text-white mb-2">You're in, {player?.name}!</h2>
-        <p className="text-gray-400 text-lg">Waiting for Ty to start the game...</p>
+        {isAiPlayer ? (
+          <>
+            <div className="text-5xl mb-6">🤖</div>
+            <h2 className="text-2xl font-bold text-white mb-2">AI is ready.</h2>
+            <p className="text-purple-400 text-sm">Will auto-answer and speak MC comments.</p>
+          </>
+        ) : (
+          <>
+            <div className="text-5xl mb-6">👋</div>
+            <h2 className="text-2xl font-bold text-white mb-2">You're in, {player?.name}!</h2>
+            <p className="text-gray-400 text-lg">Waiting for Ty to start the game...</p>
+          </>
+        )}
         <div className="mt-8 flex gap-2 justify-center">
           <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms]" />
           <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce [animation-delay:150ms]" />
@@ -138,6 +209,22 @@ export default function PlayPage() {
 
   if (screen === 'question' && currentQuestion) {
     const isSubject = currentQuestion.subjectName.toLowerCase() === player?.name.toLowerCase();
+
+    if (isAiPlayer) {
+      return (
+        <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center">
+          <div className="text-5xl mb-4">🤖</div>
+          <p className="text-purple-400 text-sm uppercase tracking-wider mb-2">AI is thinking...</p>
+          <p className="text-gray-500 text-sm">About: {currentQuestion.subjectName}</p>
+          <div className="mt-6 flex gap-2 justify-center">
+            <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce [animation-delay:0ms]" />
+            <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce [animation-delay:150ms]" />
+            <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce [animation-delay:300ms]" />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col p-4">
         <div className="mb-4 pt-2">
@@ -177,20 +264,30 @@ export default function PlayPage() {
   if (screen === 'locked') {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center">
-        <div className="text-5xl mb-4">🔒</div>
-        <h2 className="text-xl font-bold text-white mb-2">Answer locked in!</h2>
-        {selectedChoice && currentQuestion && (
-          <p className="text-gray-400 text-sm mb-6">
-            You chose: <span className="text-cyan-400 font-semibold">
-              {currentQuestion.choices.find(c => c.id === selectedChoice)?.text.slice(0, 60)}...
-            </span>
-          </p>
+        {isAiPlayer ? (
+          <>
+            <div className="text-5xl mb-4">🤖</div>
+            <h2 className="text-xl font-bold text-white mb-2">AI has answered.</h2>
+            <p className="text-gray-500 text-sm">Listening for reactions...</p>
+          </>
+        ) : (
+          <>
+            <div className="text-5xl mb-4">🔒</div>
+            <h2 className="text-xl font-bold text-white mb-2">Answer locked in!</h2>
+            {selectedChoice && currentQuestion && (
+              <p className="text-gray-400 text-sm mb-6">
+                You chose: <span className="text-cyan-400 font-semibold">
+                  {currentQuestion.choices.find(c => c.id === selectedChoice)?.text.slice(0, 60)}...
+                </span>
+              </p>
+            )}
+            <p className="text-gray-500">Waiting for everyone else...</p>
+          </>
         )}
-        <p className="text-gray-500">Waiting for everyone else...</p>
         <div className="mt-6 flex gap-2 justify-center">
-          <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms]" />
-          <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce [animation-delay:150ms]" />
-          <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce [animation-delay:300ms]" />
+          <span className={`w-2 h-2 rounded-full animate-bounce [animation-delay:0ms] ${isAiPlayer ? 'bg-purple-400' : 'bg-cyan-400'}`} />
+          <span className={`w-2 h-2 rounded-full animate-bounce [animation-delay:150ms] ${isAiPlayer ? 'bg-purple-400' : 'bg-cyan-400'}`} />
+          <span className={`w-2 h-2 rounded-full animate-bounce [animation-delay:300ms] ${isAiPlayer ? 'bg-purple-400' : 'bg-cyan-400'}`} />
         </div>
       </div>
     );
@@ -210,21 +307,27 @@ export default function PlayPage() {
         {isRoundBreak && (
           <p className="text-cyan-400 text-sm mb-2">Waiting for Ty to start Round 2...</p>
         )}
-        <p className="text-cyan-400 text-sm mb-6">
-          Your score: <span className="font-bold text-lg">{myScore}</span>
-        </p>
+        {!isAiPlayer && (
+          <p className="text-cyan-400 text-sm mb-6">
+            Your score: <span className="font-bold text-lg">{myScore}</span>
+          </p>
+        )}
         <div className="space-y-2">
           {sorted.map((p, i) => (
             <div
               key={p.id}
               className={`flex items-center justify-between rounded-xl p-3 ${
-                p.id === player?.id ? 'bg-cyan-900/40 border border-cyan-500/40' : 'bg-gray-800'
+                p.id === player?.id ? 'bg-purple-900/40 border border-purple-500/40' : 'bg-gray-800'
               }`}
             >
               <div className="flex items-center gap-3">
                 <span className="text-gray-500 text-sm w-5">{i + 1}.</span>
                 <span className="text-white font-medium">{p.name}</span>
-                {p.id === player?.id && <span className="text-cyan-400 text-xs">(you)</span>}
+                {p.id === player?.id && (
+                  <span className={`text-xs ${isAiPlayer ? 'text-purple-400' : 'text-cyan-400'}`}>
+                    {isAiPlayer ? '🤖' : '(you)'}
+                  </span>
+                )}
               </div>
               <span className="text-white font-bold text-lg">{p.score}</span>
             </div>

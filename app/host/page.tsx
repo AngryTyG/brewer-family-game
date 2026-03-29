@@ -23,6 +23,10 @@ export default function HostPage() {
   const subtitleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const subtitleKey = useRef(0);
 
+  // TTS state
+  const [speaking, setSpeaking] = useState(false);
+  const speakingRef = useRef(false);
+
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const transcriptBuffer = useRef('');
   const finalSentenceCount = useRef(0);
@@ -91,8 +95,40 @@ export default function HostPage() {
     subtitleTimerRef.current = setTimeout(() => setSubtitleVisible(false), 6000);
   }
 
+  async function speak(text: string) {
+    if (!text?.trim() || speakingRef.current) return;
+    speakingRef.current = true;
+    setSpeaking(true);
+    try {
+      const res = await fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        speakingRef.current = false;
+        setSpeaking(false);
+        finalSentenceCount.current = 0; // discard TTS transcript noise
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        speakingRef.current = false;
+        setSpeaking(false);
+      };
+      audio.play();
+    } catch {
+      speakingRef.current = false;
+      setSpeaking(false);
+    }
+  }
+
   // Fire subtitle API from ambient speech
   async function requestSubtitle(snippet: string) {
+    if (speakingRef.current) return; // don't react to our own voice
     try {
       const res = await fetch('/api/subtitle', {
         method: 'POST',
@@ -202,11 +238,12 @@ export default function HostPage() {
     if (action === 'advance') {
       if (state.revealPhase === 'scores') {
         const q = state.questions[state.currentQuestionIndex];
+        const effectiveCorrectId = state.effectiveCorrectId ?? q.correctId;
         triggerMC('reveal-subject', {
           transcript: transcriptBuffer.current.slice(-200),
-          correctId: q.correctId,
+          correctId: effectiveCorrectId,
           aiPredictionId: q.aiPredictionId,
-          aiGotIt: q.aiPredictionId === q.correctId,
+          aiGotIt: q.aiPredictionId === effectiveCorrectId,
           subjectName: q.subjectName,
         });
       }
@@ -259,6 +296,19 @@ export default function HostPage() {
           >
             {listening ? '🎤 Live' : '🎤 Start Mic'}
           </button>
+          {mcText && (
+            <button
+              onClick={() => speak(mcText)}
+              disabled={speaking}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                speaking
+                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40 animate-pulse'
+                  : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-purple-500 hover:text-purple-400'
+              }`}
+            >
+              {speaking ? '🔊 Speaking...' : '🔊 Speak'}
+            </button>
+          )}
           <button onClick={reset} className="px-3 py-1.5 rounded-lg text-sm bg-gray-800 text-gray-500 border border-gray-700 hover:text-red-400 transition-colors">
             Reset
           </button>
@@ -396,7 +446,8 @@ export default function HostPage() {
               <div className="grid grid-cols-1 gap-2">
                 {currentQ.choices.map((choice, idx) => {
                   const answersForChoice = answers.filter(a => a.choiceId === choice.id);
-                  const isCorrect = (revealPhase === 'reveal-subject' || revealPhase === 'scores') && choice.id === currentQ.correctId;
+                  const effectiveCorrectId = gameState.effectiveCorrectId ?? currentQ.correctId;
+                  const isCorrect = (revealPhase === 'reveal-subject' || revealPhase === 'scores') && choice.id === effectiveCorrectId;
                   const isAiPick = (revealPhase === 'reveal-ai' || revealPhase === 'reveal-subject' || revealPhase === 'scores') && choice.id === currentQ.aiPredictionId;
                   const showFamilyAnswers = revealPhase !== 'question';
                   const isVisible = revealPhase !== 'question' || visibleChoices > idx;
