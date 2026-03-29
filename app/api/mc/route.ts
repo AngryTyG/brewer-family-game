@@ -24,15 +24,27 @@ React to what you hear in the background if given an ambient transcript.
 `.trim();
 
 export async function POST(req: NextRequest) {
-  const { trigger, questionId, subjectName, correctId, correctText, aiPredictionId, aiGotIt, transcript } = await req.json();
+  const { trigger, questionId, subjectName, correctId, correctText, aiPredictionId, aiChoice, aiGotIt, transcript } = await req.json();
 
   let prompt = '';
 
-  if (trigger === 'reveal-subject') {
+  if (trigger === 'reveal-family') {
+    prompt = `The family's answers about ${subjectName} are now being revealed.
+${transcript ? `They were saying: "${transcript}"` : ''}
+React as MC in 1-2 sentences. Build suspense as we're about to see what they chose.`;
+  } else if (trigger === 'reveal-ai') {
+    prompt = `Now it's time to reveal what the AI predicted about ${subjectName}.
+The AI's prediction was: "${aiChoice}".
+React as MC in 1-2 sentences. Was it bold? Obvious? Reference the AI's thinking.`;
+  } else if (trigger === 'reveal-subject') {
     prompt = `${subjectName} just revealed their answer: "${correctText}".
 The AI predicted choice ${aiPredictionId} and was ${aiGotIt ? 'RIGHT ✓' : 'WRONG ✗'}.
 ${transcript ? `Ambient conversation: "${transcript}"` : ''}
 React as MC: make it clear this is ${subjectName}'s own answer about themselves. Was the family right? Did the AI nail it or miss? Keep it sharp and fun.`;
+  } else if (trigger === 'scores') {
+    prompt = `Scores have just been tallied for this question.
+${transcript ? `The room just said: "${transcript}"` : ''}
+React as MC in 1-2 sentences. Comment on who scored, the competition so far, or the AI's performance.`;
   } else if (trigger === 'ambient') {
     prompt = `You're running game night. Here's what you just heard in the background:
 "${transcript}"

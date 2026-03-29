@@ -230,10 +230,36 @@ export default function HostPage() {
     if (!reader) return;
     setMcText('');
     const decoder = new TextDecoder();
+    let accumulated = '';
+    let ttsPrewarmed = false;
+    // speechId will be currentSpeechId+1 once this stream finishes
+    const predictedSpeechId = (gameState?.speechId ?? 0) + 1;
+
+    const prewarmTTS = (text: string) => {
+      ttsPrewarmed = true;
+      fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, speechId: predictedSpeechId }),
+      }).catch(() => {});
+    };
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      setMcText(prev => prev + decoder.decode(value));
+      const chunk = decoder.decode(value);
+      accumulated += chunk;
+      setMcText(prev => prev + chunk);
+
+      // Start TTS as soon as the first sentence is complete
+      if (!ttsPrewarmed && /[.!?]/.test(accumulated)) {
+        prewarmTTS(accumulated);
+      }
+    }
+
+    // Fallback: no sentence boundary found — pre-warm with whatever we got
+    if (!ttsPrewarmed && accumulated) {
+      prewarmTTS(accumulated);
     }
   }
 
@@ -247,8 +273,8 @@ export default function HostPage() {
     setGameState(state);
 
     if (action === 'advance') {
-      if (state.revealPhase === 'scores') {
-        const q = state.questions[state.currentQuestionIndex];
+      const q = state.questions[state.currentQuestionIndex];
+      if (state.revealPhase === 'reveal-subject') {
         const effectiveCorrectId = state.effectiveCorrectId ?? q.correctId;
         const correctText = q.choices.find(c => c.id === effectiveCorrectId)?.text ?? '';
         triggerMC('reveal-subject', {
